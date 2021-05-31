@@ -1,0 +1,115 @@
+version: "3.3"
+
+services:
+  database:
+    image: library/mysql:8.0
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - "./Data/database:/var/lib/mysql"
+    environment:
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+    networks:
+      - ${NETWORK}
+  cache:
+    image: redis:alpine
+    restart: always
+    networks:
+      - ${NETWORK}
+  panel:
+    image: ghcr.io/pterodactyl/panel:v1.4.0
+    restart: always
+    ports:
+      - "8888:80"
+      - "4444:443"
+    links:
+      - database
+      - cache
+    volumes:
+      - "./Panel/var/:/app/var/"
+      - "./Panel/nginx/:/etc/nginx/conf.d/"
+      - "./Panel/certs/:/etc/letsencrypt/"
+      - "./Panel/logs/:/app/storage/logs"
+      - "./letsencrypt:/etc/letsencrypt/live/"
+    environment:
+      APP_URL: ${APP_URL}
+      APP_TIMEZONE: ${APP_TIMEZONE}
+      APP_SERVICE_AUTHOR: ${APP_SERVICE_AUTHOR}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+      MAIL_DRIVER: ${MAIL_DRIVER}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_ENCRYPTION: ${MAIL_ENCRYPTION}
+      APP_ENV: "production"
+      APP_ENVIRONMENT_ONLY: "false"
+      CACHE_DRIVER: "redis"
+      SESSION_DRIVER: "redis"
+      QUEUE_DRIVER: "redis"
+      REDIS_HOST: "cache"
+      DB_HOST: "database"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.panel.entrypoints: websecure
+      traefik.http.routers.panel.rule: Host("${PANEL_HOST}")
+      traefik.http.routers.panel.tls: true
+      traefik.http.routers.panel.tls.certresolver: http
+      traefik.http.routers.panel_insecure.entrypoints: web
+      traefik.http.routers.panel_insecure.middlewares: https@file
+      traefik.http.routers.panel_insecure.rule: Host("${PANEL_HOST}")
+      traefik.http.services.panel.loadbalancer.server.port: 443
+      traefik.http.services.panel.loadbalancer.server.scheme: https
+    networks:
+      - ${NETWORK}
+  wings:
+    image: ghcr.io/pterodactyl/wings:v1.4.0
+    restart: always
+    ports:
+      - "2022:2022"
+    tty: true
+    environment:
+      TZ: "UTC"
+      WINGS_UID: 988
+      WINGS_GID: 988
+      WINGS_USERNAME: pterodactyl
+    labels:
+      traefik.enable: true
+      traefik.http.routers.panel_node.entrypoints: websecure
+      traefik.http.routers.panel_node.rule: Host("${NODE_HOST}")
+      traefik.http.routers.panel_node.tls: true
+      traefik.http.routers.panel_node.tls.certresolver: http
+      traefik.http.routers.panel_node_insecure.entrypoints: web
+      traefik.http.routers.panel_node_insecure.middlewares: https@file
+      traefik.http.routers.panel_node_insecure.rule: Host("${NODE_HOST}") 
+      traefik.http.services.panel_node.loadbalancer.server.port: 443
+      traefik.http.services.panel_node.loadbalancer.server.scheme: https      
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+     # - "/MainPool/Pterodactyl:/MainPool/Pterodactyl/"
+      - "./Wing/etc/pterodactyl/:/etc/pterodactyl/"
+      - "/var/lib/pterodactyl/:/var/lib/pterodactyl/"
+      - "./Wing/var/log/pterodactyl/:/var/log/pterodactyl/"
+      - "/tmp/pterodactyl/:/tmp/pterodactyl/"
+      - "/etc/ssl/certs:/etc/ssl/certs:ro"
+      - "./letsencrypt/:/etc/letsencrypt/live/:ro"
+    networks:
+      - ${NETWORK}
+  traefik_certdump:
+    image: humenius/traefik-certs-dumper
+    network_mode: none
+    volumes:
+      - ./letsencrypt/:/output:rw
+      - LetsEncrypt:/traefik
+    environment:
+       - DOMAIN=${PANEL_HOST},${NODE_HOST}
+volumes:
+  LetsEncrypt:
+    external: true
+networks:
+  proxy:
+    external: true

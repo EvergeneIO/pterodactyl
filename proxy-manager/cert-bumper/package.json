@@ -1,0 +1,14 @@
+{
+  "name": "cert-bumper-pterodactyl-proxy-manager",
+  "version": "1.0.0",
+  "description": "Certificate Dumper application for use with Nginx Proxy Manager & Pterodactyl",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "NewtTheWolf",
+  "license": "MIT",
+  "dependencies": {
+    "mysql": "^2.18.1"
+  }
+}
