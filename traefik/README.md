@@ -19,7 +19,7 @@ Be sure that you have set the volume for your traefik instance as well
       - "LetsEncrypt:/LetsEncrypt"
 ```
 
-Make sure you have this in the `dynanic_config.yml` of traefik
+Make sure you have this in the `dynamic.yml` of traefik
 
 ```yml
 certificatesResolvers:
